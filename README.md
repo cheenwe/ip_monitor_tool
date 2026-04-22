@@ -58,16 +58,31 @@ pyinstaller --noconfirm --onefile --windowed --name ip-monitor --icon icon.ico -
 
 产物：`dist/ip-monitor.exe`
 
-### Linux / macOS 打包（在对应系统执行）
+### Linux 打包（在 Linux 环境执行）
 
 ```bash
 pyinstaller --noconfirm --onefile --windowed --name ip-monitor --icon icon.png --add-data "icon.png:." monitor_gui.py
 ```
 
+产物：`dist/ip-monitor`
+
+### macOS 打包（在 macOS 环境执行）
+
+先安装 Pillow（用于将 `png` 图标转换为 macOS 需要的 `icns`）：
+
+```bash
+pip install pillow
+```
+
+再执行：
+
+```bash
+pyinstaller --noconfirm --onedir --windowed --name ip-monitor --icon icon.png --add-data "icon.png:." monitor_gui.py
+```
+
 产物：
 
-- Linux: `dist/ip-monitor`
-- macOS: `dist/ip-monitor.app`（或对应可执行文件）
+- macOS: `dist/ip-monitor.app`
 
 > 说明：本地直接跨平台打包通常不可行，建议在目标系统或 CI 上构建。
 

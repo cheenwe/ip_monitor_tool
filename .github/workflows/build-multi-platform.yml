@@ -27,9 +27,10 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip pyinstaller
+        run: python -m pip install --upgrade pip pyinstaller pillow
 
       - name: Build executable
+        shell: bash
         run: |
           python - <<'PY'
           import platform
@@ -39,12 +40,13 @@ jobs:
           system_name = platform.system()
           add_data = "icon.png;." if system_name == "Windows" else "icon.png:."
           icon_file = "icon.ico" if system_name == "Windows" else "icon.png"
+          bundle_mode = "--onedir" if system_name == "Darwin" else "--onefile"
           cmd = [
               sys.executable,
               "-m",
               "PyInstaller",
               "--noconfirm",
-              "--onefile",
+              bundle_mode,
               "--windowed",
               "--name",
               "ip-monitor",
@@ -59,6 +61,7 @@ jobs:
           PY
 
       - name: Create distributable archive
+        shell: bash
         run: |
           python - <<'PY'
           import platform
