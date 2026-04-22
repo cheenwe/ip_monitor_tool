@@ -1,0 +1,117 @@
+name: Build Multi Platform Packages
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Build executable
+        run: |
+          python - <<'PY'
+          import platform
+          import subprocess
+          import sys
+
+          system_name = platform.system()
+          add_data = "icon.png;." if system_name == "Windows" else "icon.png:."
+          icon_file = "icon.ico" if system_name == "Windows" else "icon.png"
+          cmd = [
+              sys.executable,
+              "-m",
+              "PyInstaller",
+              "--noconfirm",
+              "--onefile",
+              "--windowed",
+              "--name",
+              "ip-monitor",
+              "--icon",
+              icon_file,
+              "--add-data",
+              add_data,
+              "monitor_gui.py",
+          ]
+          print("Running:", " ".join(cmd))
+          subprocess.check_call(cmd)
+          PY
+
+      - name: Create distributable archive
+        run: |
+          python - <<'PY'
+          import platform
+          import shutil
+          from pathlib import Path
+
+          dist = Path("dist")
+          release_dir = Path("release")
+          release_dir.mkdir(parents=True, exist_ok=True)
+
+          candidates = [
+              dist / "ip-monitor.exe",
+              dist / "ip-monitor",
+              dist / "ip-monitor.app",
+          ]
+          target = next((p for p in candidates if p.exists()), None)
+          if target is None:
+              raise SystemExit("No build output found in dist/")
+
+          staged = release_dir / target.name
+          if target.is_dir():
+              shutil.copytree(target, staged, dirs_exist_ok=True)
+          else:
+              shutil.copy2(target, staged)
+
+          os_name = platform.system().lower()
+          archive_base = release_dir / f"ip-monitor-{os_name}"
+          shutil.make_archive(str(archive_base), "zip", root_dir=release_dir, base_dir=target.name)
+          print("Created:", f"{archive_base}.zip")
+          PY
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ip-monitor-${{ matrix.os }}
+          path: release/*.zip
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.zip
